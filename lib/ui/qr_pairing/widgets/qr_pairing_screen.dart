@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../view_model/qr_pairing_view_model.dart';
-import 'qr_generator_widget.dart';
-import 'qr_scanner_widget.dart';
+import '../../generate_QR_code/widgets/generate_QR_code.dart';
+import '../../scan_QR_code/widgets/scan_QR_code.dart';
 
 class QrPairingScreen extends StatelessWidget {
   const QrPairingScreen({super.key});
@@ -21,9 +21,9 @@ class QrPairingScreen extends StatelessWidget {
               child: const Text('Generate QR Code'),
             )
           else
-            QrGeneratorWidget(sessionId: viewModel.sessionId!),
+            GenerateQRCode(sessionId: viewModel.sessionId!),
           const SizedBox(height: 32),
-          QrScannerWidget(onScanned: viewModel.connectToSession),
+          ScanQRCode(onScanned: viewModel.connectToSession),
           if (viewModel.isConnected)
             const Padding(
               padding: EdgeInsets.all(16.0),
