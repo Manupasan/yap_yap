@@ -64,7 +64,8 @@ class ScanQRScreen extends StatelessWidget {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
-                      child: ScanQRCode(
+                      child: // Update the onScanned callback in scan_QR_screen.dart
+                      ScanQRCode(
                         onScanned: (sessionId) async {
                           await viewModel.connectToSession(sessionId);
                           if (viewModel.isConnected && context.mounted) {
@@ -80,6 +81,16 @@ class ScanQRScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
+                            );
+
+                            // Navigate to chat after successful connection
+                            Navigator.pushNamed(
+                              context,
+                              '/chat',
+                              arguments: {
+                                'sessionId': sessionId,
+                                'currentUserId': viewModel.currentUserId,
+                              },
                             );
                           }
                         },

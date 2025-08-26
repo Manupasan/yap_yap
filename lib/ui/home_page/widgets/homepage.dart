@@ -65,11 +65,14 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   child: Center(
+                    child: ClipOval(
                     child: Image.asset(
                       'assets/images/logo.jpg',
                       fit: BoxFit.contain, // makes sure it fits inside
-                      height: 120, // adjust size
+                      height: 120,
+                       // adjust size
                     ),
+                    )
                   ),
                 ),
 
@@ -152,6 +155,33 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/start-chat');
+                    },
+                    icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF2ECC71)),
+                    label: const Text(
+                      "Start Chatting",
+                      style: TextStyle(color: Color(0xFF2ECC71)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF2ECC71), width: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+
 
                 // Add bottom spacing for better scrolling
                 const SizedBox(height: 40),
