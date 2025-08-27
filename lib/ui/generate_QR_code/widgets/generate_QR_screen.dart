@@ -18,7 +18,8 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final viewModel = Provider.of<QrPairingViewModel>(context, listen: false);
       if (viewModel.sessionId == null) {
-        viewModel.generateSession();
+        //viewModel.generateSession();
+        viewModel.generateSessionWithToken();
       }
     });
   }
@@ -109,7 +110,33 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
                           child: GenerateQRCode(sessionId: viewModel.sessionId!),
                         ),
                       ),
-                      const SizedBox(height: 30),
+                        const SizedBox(height: 30),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.qr_code, color: Colors.white),
+                            label: const Text(
+                              'Generate New QR Code',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2ECC71),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                            onPressed: () {
+                              viewModel.generateSessionWithToken();
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 20),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         decoration: BoxDecoration(
