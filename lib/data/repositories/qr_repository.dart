@@ -14,6 +14,15 @@ class QrRepository {
     return sessionId;
   }
 
+  Future<String> createToken() async {
+  final sessionId = qrService.generateSessionId();
+  final expiresAt = DateTime.now().add(const Duration(minutes: 1)).millisecondsSinceEpoch;
+  final sessionToken = '$sessionId|$expiresAt';
+  await chatService.createSession(sessionToken);
+  return sessionToken;
+  }
+
+
   Future<bool> connectToSession(String sessionId, String userId) async {
     final exists = await chatService.sessionExists(sessionId);
     if (!exists) {

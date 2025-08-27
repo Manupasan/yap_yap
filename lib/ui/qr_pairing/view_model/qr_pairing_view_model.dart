@@ -35,6 +35,22 @@ class QrPairingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> generateSessionWithToken() async {
+    sessionId = await qrRepository.createToken();
+
+    // Listen for users joining this session
+    _usersSubscription?.cancel();
+    _usersSubscription = qrRepository.getUsersStream(sessionId!).listen((users) {
+      final userCount = users.length;
+      hasOtherUsers = userCount > 0;
+      notifyListeners();
+    });
+
+    notifyListeners();
+  }
+
+
+
   Future<void> connectToSession(String scannedSessionId) async {
     isConnected = await qrRepository.connectToSession(scannedSessionId, currentUserId);
     if (isConnected) {

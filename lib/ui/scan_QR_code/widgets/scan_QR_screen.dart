@@ -3,8 +3,16 @@ import 'package:provider/provider.dart';
 import '../../qr_pairing/view_model/qr_pairing_view_model.dart';
 import 'scan_QR_code.dart';
 
-class ScanQRScreen extends StatelessWidget {
+
+class ScanQRScreen extends StatefulWidget {
   const ScanQRScreen({super.key});
+
+  @override
+  State<ScanQRScreen> createState() => _ScanQRScreenState();
+}
+
+class _ScanQRScreenState extends State<ScanQRScreen> {
+  bool _scanHandled = false;
 
   @override
   Widget build(BuildContext context) {
@@ -64,9 +72,26 @@ class ScanQRScreen extends StatelessWidget {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
-                      child: // Update the onScanned callback in scan_QR_screen.dart
-                      ScanQRCode(
+                      child: ScanQRCode(
                         onScanned: (sessionId) async {
+                          if (_scanHandled) return;
+                          _scanHandled = true;
+                          final parts = sessionId.split('|');
+                          if (parts.length != 2) {
+                            _showError('Invalid QR code.', context);
+                            return;
+                          }
+                          final expiresAt = int.tryParse(parts[1]);
+                          if (expiresAt == null) {
+                            _showError('Invalid QR code.', context);
+                            return;
+                          }
+                          final now = DateTime.now().millisecondsSinceEpoch;
+                          if (now > expiresAt) {
+                            _showError('QR code expired. Please ask your friend to generate a new one.', context);
+                            return;
+                          }
+
                           await viewModel.connectToSession(sessionId);
                           if (viewModel.isConnected && context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -147,6 +172,9 @@ class ScanQRScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
+                        setState(() {
+                          _scanHandled = false;
+                        });
                         viewModel.isConnected = false;
                         viewModel.notifyListeners();
                       },
@@ -175,6 +203,15 @@ class ScanQRScreen extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showError(String message, BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
       ),
     );
   }
