@@ -1,6 +1,7 @@
 // lib/ui/chat_box/widgets/chat_box.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../qr_pairing/view_model/qr_pairing_view_model.dart';
 import '../view_model/chat_view_model.dart';
 import '../../../data/services/firebase_chat_service.dart';
 
@@ -92,11 +93,56 @@ class _ChatBoxState extends State<ChatBox> {
             foregroundColor: Colors.white,
             elevation: 0,
             actions: [
-              IconButton(
-                onPressed: () {
-                  Navigator.pop(context);
+              PopupMenuButton<String>(
+                onSelected: (value) async {
+                  final viewModel = Provider.of<ChatViewModel>(context, listen: false);
+                  final qrViewModel = Provider.of<QrPairingViewModel>(context, listen: false);
+
+                  if (value == 'end_chat') {
+                    // Show confirmation dialog
+                    final bool? shouldEndChat = await showDialog<bool>(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('End Chat'),
+                          content: const Text('Are you sure you want to end this chat session?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              style: TextButton.styleFrom(foregroundColor: Colors.red),
+                              child: const Text('End Chat'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+
+                    if (shouldEndChat == true) {
+                      await viewModel.endChatSession();
+                      qrViewModel.clearActiveSession();
+                      if (context.mounted) {
+                        Navigator.popUntil(context, (route) => route.isFirst);
+                      }
+                    }
+                  }
                 },
-                icon: const Icon(Icons.close),
+                itemBuilder: (BuildContext context) => [
+                  const PopupMenuItem<String>(
+                    value: 'end_chat',
+                    child: Row(
+                      children: [
+                        Icon(Icons.exit_to_app, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('End Chat', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+                icon: const Icon(Icons.more_vert),
               ),
             ],
           ),

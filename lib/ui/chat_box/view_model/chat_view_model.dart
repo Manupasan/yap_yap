@@ -57,11 +57,20 @@ class ChatViewModel extends ChangeNotifier {
     }
   }
 
+  // Method to explicitly end the chat session
+  Future<void> endChatSession() async {
+    try {
+      await qrRepository.leaveSession(sessionId, currentUserId);
+    } catch (error) {
+      print('Error leaving session: $error');
+    }
+  }
+
   @override
   void dispose() {
     _messagesSubscription?.cancel();
-    // Leave session when disposing
-    qrRepository.leaveSession(sessionId, currentUserId);
+    // Don't automatically leave session on dispose
+    // Only leave when explicitly ending the chat
     super.dispose();
   }
 }

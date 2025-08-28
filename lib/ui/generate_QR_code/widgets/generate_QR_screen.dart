@@ -38,6 +38,8 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
               ),
             );
 
+            viewModel.setActiveSession(viewModel.sessionId!);
+
             Navigator.pushNamed(
               context,
               '/chat',

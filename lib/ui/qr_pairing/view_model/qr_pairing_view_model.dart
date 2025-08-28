@@ -10,21 +10,36 @@ class QrPairingViewModel extends ChangeNotifier {
 
   String? sessionId;
   String? connectedSessionId;
+  String? activeSessionId; // Track active chat session
   bool isConnected = false;
   bool hasOtherUsers = false;
   late final String currentUserId;
   StreamSubscription<Set<String>>? _usersSubscription;
 
   QrPairingViewModel({required this.qrRepository, required this.qrService}) {
-    currentUserId = qrService.generateSessionId(); // Use as user ID
+    currentUserId = qrService.generateSessionId();
   }
 
   get errorMessage => null;
 
+  // Check if there's an active chat session
+  bool get hasActiveSession => activeSessionId != null;
+
+  // Set active session when entering chat
+  void setActiveSession(String sessionId) {
+    activeSessionId = sessionId;
+    notifyListeners();
+  }
+
+  // Clear active session when leaving chat
+  void clearActiveSession() {
+    activeSessionId = null;
+    notifyListeners();
+  }
+
   Future<void> generateSession() async {
     sessionId = await qrRepository.createSession();
 
-    // Listen for users joining this session
     _usersSubscription?.cancel();
     _usersSubscription = qrRepository.getUsersStream(sessionId!).listen((users) {
       final userCount = users.length;
@@ -38,7 +53,6 @@ class QrPairingViewModel extends ChangeNotifier {
   Future<void> generateSessionWithToken() async {
     sessionId = await qrRepository.createToken();
 
-    // Listen for users joining this session
     _usersSubscription?.cancel();
     _usersSubscription = qrRepository.getUsersStream(sessionId!).listen((users) {
       final userCount = users.length;
@@ -49,12 +63,11 @@ class QrPairingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-
-
   Future<void> connectToSession(String scannedSessionId) async {
     isConnected = await qrRepository.connectToSession(scannedSessionId, currentUserId);
     if (isConnected) {
       connectedSessionId = scannedSessionId;
+      setActiveSession(scannedSessionId); // Set as active session
     }
     notifyListeners();
   }
