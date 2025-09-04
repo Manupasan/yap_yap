@@ -1,8 +1,10 @@
+// lib/ui/scan_QR_code/widgets/scan_QR_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../data/services/local_storage_service.dart';
+import '../../../data/models/chat_session_local.dart';
 import '../../qr_pairing/view_model/qr_pairing_view_model.dart';
 import 'scan_QR_code.dart';
-
 
 class ScanQRScreen extends StatefulWidget {
   const ScanQRScreen({super.key});
@@ -12,53 +14,113 @@ class ScanQRScreen extends StatefulWidget {
 }
 
 class _ScanQRScreenState extends State<ScanQRScreen> {
-  bool _scanHandled = false;
+  final LocalStorageService _localStorage = LocalStorageService();
+  bool _navigationHandled = false;
+
+  Future<void> _handleScannedCode(String code) async {
+    if (_navigationHandled) return;
+
+    final viewModel = Provider.of<QrPairingViewModel>(context, listen: false);
+
+    try {
+      await viewModel.connectToSession(code);
+
+      if (viewModel.isConnected && viewModel.connectedSessionId != null) {
+        _navigationHandled = true;
+
+        // Create chat session for the scanner
+        final chatSession = ChatSessionLocal(
+          sessionId: viewModel.connectedSessionId!,
+          otherUserName: 'Connected User', // Default name
+          lastMessage: null,
+          lastActivity: DateTime.now(),
+          createdAt: DateTime.now(),
+        );
+
+        // Save to local storage
+        await _localStorage.saveChatSession(chatSession);
+
+        if (mounted) {
+          // Navigate to chat
+          Navigator.pushReplacementNamed(
+            context,
+            '/chat',
+            arguments: {
+              'sessionId': viewModel.connectedSessionId!,
+              'currentUserId': viewModel.currentUserId,
+            },
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to connect: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = Provider.of<QrPairingViewModel>(context);
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Scan QR Code',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: const Color(0xFF2ECC71),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
+    return Consumer<QrPairingViewModel>(
+      builder: (context, viewModel, child) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            title: const Text('Scan QR Code'),
+            backgroundColor: const Color(0xFF2ECC71),
+            foregroundColor: Colors.white,
+          ),
+          body: SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 20),
-                if (!viewModel.isConnected) ...[
-                  // Scanning state
-                  const Text(
-                    'Scan to Connect',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D1D1D),
-                    ),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Point your camera at a QR code',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1D1D1D),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Position the QR code within the frame to connect',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF6E7C8C),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      if (viewModel.errorMessage != null)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Text(
+                            viewModel.errorMessage!,
+                            style: TextStyle(color: Colors.red.shade700),
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Point your camera at a QR code to instantly connect with someone',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF6E7C8C),
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  Container(
+                ),
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
@@ -72,147 +134,47 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
-                      child: ScanQRCode(
-                        onScanned: (sessionId) async {
-                          if (_scanHandled) return;
-                          _scanHandled = true;
-                          final parts = sessionId.split('|');
-                          if (parts.length != 2) {
-                            _showError('Invalid QR code.', context);
-                            return;
-                          }
-                          final expiresAt = int.tryParse(parts[1]);
-                          if (expiresAt == null) {
-                            _showError('Invalid QR code.', context);
-                            return;
-                          }
-                          final now = DateTime.now().millisecondsSinceEpoch;
-                          if (now > expiresAt) {
-                            _showError('QR code expired. Please ask your friend to generate a new one.', context);
-                            return;
-                          }
-
-                          await viewModel.connectToSession(sessionId);
-                          if (viewModel.isConnected && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'Successfully connected!',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                backgroundColor: const Color(0xFF2ECC71),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            );
-
-                            // Navigate to chat after successful connection
-                            Navigator.pushNamed(
-                              context,
-                              '/chat',
-                              arguments: {
-                                'sessionId': sessionId,
-                                'currentUserId': viewModel.currentUserId,
-                              },
-                            );
-                          }
-                        },
-                      ),
+                      child: ScanQRCode(onScanned: _handleScannedCode),
                     ),
                   ),
-                  const SizedBox(height: 30),
-
-                ] else ...[
-                  // Connected state
-                  Container(
-                    height: 200,
-                    width: double.infinity,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF2ECC71),
-                          Color(0xFF4ECDC4),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                      color: const Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.circular(25),
+                      border: Border.all(
+                        color: const Color(0xFF6E7C8C).withOpacity(0.3),
+                        width: 1,
                       ),
                     ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.check_circle,
-                        size: 80,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  const Text(
-                    'Connected Successfully!',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D1D1D),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'You are now connected and ready to start chatting',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF6E7C8C),
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _scanHandled = false;
-                        });
-                        viewModel.isConnected = false;
-                        viewModel.notifyListeners();
-                      },
-                      icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-                      label: const Text(
-                        'Scan Another QR',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Color(0xFF6E7C8C),
+                          size: 16,
                         ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2ECC71),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        SizedBox(width: 8),
+                        Text(
+                          'Make sure the QR code is well lit and in focus',
+                          style: TextStyle(
+                            color: Color(0xFF6E7C8C),
+                            fontSize: 12,
+                          ),
                         ),
-                        elevation: 2,
-                      ),
+                      ],
                     ),
                   ),
-                ],
-                const SizedBox(height: 40),
+                ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showError(String message, BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+        );
+      },
     );
   }
 }

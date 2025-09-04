@@ -12,6 +12,7 @@ import 'package:yap_yap/my_chats/view_model/my_chats_view_model.dart';
 import 'data/repositories/qr_repository.dart';
 import 'data/services/qr_service.dart';
 import 'data/services/firebase_chat_service.dart';
+import 'data/services/local_storage_service.dart';
 import 'ui/qr_pairing/view_model/qr_pairing_view_model.dart';
 import 'ui/qr_pairing/widgets/qr_pairing_screen.dart';
 import 'ui/home_page/widgets/homepage.dart';
@@ -31,6 +32,7 @@ void main() async {
       providers: [
         Provider<QrService>(create: (context) => QrService()),
         Provider<FirebaseChatService>(create: (context) => FirebaseChatService()),
+        Provider<LocalStorageService>(create: (context) => LocalStorageService()),
         ProxyProvider2<QrService, FirebaseChatService, QrRepository>(
           update: (context, qrService, chatService, previous) => QrRepository(
             qrService: qrService,
