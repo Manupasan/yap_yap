@@ -12,13 +12,14 @@ class GenerateQRScreen extends StatefulWidget {
 }
 
 class _GenerateQRScreenState extends State<GenerateQRScreen> {
+  bool _navigationHandled = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final viewModel = Provider.of<QrPairingViewModel>(context, listen: false);
       if (viewModel.sessionId == null) {
-        //viewModel.generateSession();
         viewModel.generateSessionWithToken();
       }
     });
@@ -30,17 +31,21 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
       builder: (context, viewModel, child) {
         // Auto-navigate to chat when someone scans the QR
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (viewModel.hasOtherUsers && viewModel.sessionId != null && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Someone connected to your QR!'),
-                backgroundColor: Color(0xFF2ECC71),
-              ),
-            );
+          if (viewModel.hasOtherUsers &&
+              viewModel.sessionId != null &&
+              mounted &&
+              !_navigationHandled) {
 
+            _navigationHandled = true;
+
+            // Clear any existing notifications
+            ScaffoldMessenger.of(context).clearSnackBars();
+
+            // Set active session
             viewModel.setActiveSession(viewModel.sessionId!);
 
-            Navigator.pushNamed(
+            // Navigate to chat and replace current screen
+            Navigator.pushReplacementNamed(
               context,
               '/chat',
               arguments: {
@@ -59,7 +64,12 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
             foregroundColor: Colors.white,
             actions: [
               IconButton(
-                onPressed: () => viewModel.resetSession(),
+                onPressed: () {
+                  setState(() {
+                    _navigationHandled = false;
+                  });
+                  viewModel.resetSession();
+                },
                 icon: const Icon(Icons.refresh),
               ),
             ],
@@ -112,33 +122,36 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
                           child: GenerateQRCode(sessionId: viewModel.sessionId!),
                         ),
                       ),
-                        const SizedBox(height: 30),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.qr_code, color: Colors.white),
-                            label: const Text(
-                              'Generate New QR Code',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      const SizedBox(height: 30),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.qr_code, color: Colors.white),
+                          label: const Text(
+                            'Generate New QR Code',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2ECC71),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 2,
-                            ),
-                            onPressed: () {
-                              viewModel.generateSessionWithToken();
-                            },
                           ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2ECC71),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _navigationHandled = false;
+                            });
+                            viewModel.generateSessionWithToken();
+                          },
                         ),
-                        const SizedBox(height: 20),
+                      ),
+                      const SizedBox(height: 20),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         decoration: BoxDecoration(
