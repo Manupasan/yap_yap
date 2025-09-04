@@ -153,26 +153,19 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 16),
 
-                    // Dynamic third button
+                    // Go to My Chats Button
                     SizedBox(
                       width: double.infinity,
-                      child: viewModel.hasActiveSession
-                          ? ElevatedButton.icon(
+                      child: ElevatedButton.icon(
                         onPressed: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/chat',
-                            arguments: {
-                              'sessionId': viewModel.activeSessionId!,
-                              'currentUserId': viewModel.currentUserId,
-                            },
-                          );
+                          Navigator.pushNamed(context, '/my-chats');
                         },
-                        icon: const Icon(Icons.chat, color: Colors.white),
+                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
                         label: const Text(
-                          "Go to Current Chat",
+                          "Go to My Chats",
                           style: TextStyle(color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -187,29 +180,45 @@ class HomePage extends StatelessWidget {
                           ),
                           elevation: 2,
                         ),
-                      )
-                          : OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/start-chat');
-                        },
-                        icon: const Icon(Icons.chat, color: Color(0xFF2ECC71)),
-                        label: const Text(
-                          "Start Demo Chat",
-                          style: TextStyle(color: Color(0xFF2ECC71)),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF2ECC71), width: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+
+                    // Only show "Go to Current Chat" if there's an active session
+                    if (viewModel.hasActiveSession) ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/chat',
+                              arguments: {
+                                'sessionId': viewModel.activeSessionId!,
+                                'currentUserId': viewModel.currentUserId,
+                              },
+                            );
+                          },
+                          icon: const Icon(Icons.chat, color: Colors.white),
+                          label: const Text(
+                            "Go to Current Chat",
+                            style: TextStyle(color: Colors.white),
                           ),
-                          textStyle: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2ECC71),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            elevation: 2,
                           ),
                         ),
                       ),
-                    ),
+                    ],
 
                     const SizedBox(height: 40),
                   ],
