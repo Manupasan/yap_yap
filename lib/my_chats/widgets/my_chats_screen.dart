@@ -1,7 +1,7 @@
 // lib/my_chats/widgets/my_chats_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../domain/models/chat_session.dart';
+import '../../data/models/chat_session_local.dart';
 import '../view_model/my_chats_view_model.dart';
 
 class MyChatsScreen extends StatelessWidget {
@@ -18,12 +18,16 @@ class MyChatsScreen extends StatelessWidget {
             backgroundColor: const Color(0xFF2ECC71),
             foregroundColor: Colors.white,
             elevation: 0,
+            actions: [
+              IconButton(
+                onPressed: () => viewModel.refreshChatSessions(),
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
           ),
-          body: SafeArea(
-            child: viewModel.chatSessions.isEmpty
-                ? _buildEmptyState(context)
-                : _buildChatList(context, viewModel),
-          ),
+          body: viewModel.chatSessions.isEmpty
+              ? _buildEmptyState(context)
+              : _buildChatList(context, viewModel),
         );
       },
     );
@@ -37,93 +41,64 @@ class MyChatsScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 120,
-              height: 120,
+              padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF2ECC71),
-                    Color(0xFF4ECDC4),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(60),
+                color: const Color(0xFF2ECC71).withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.chat_bubble_outline,
-                size: 60,
-                color: Colors.white,
+                size: 64,
+                color: Color(0xFF2ECC71),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 24),
             const Text(
-              'No Chats Yet',
+              'No chats yet',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF1D1D1D),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             const Text(
-              'Start your first conversation by\ngenerating or scanning a QR code',
+              'Start a conversation by generating or scanning a QR code',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
                 color: Color(0xFF6E7C8C),
               ),
             ),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/generate-qr');
-                },
-                icon: const Icon(Icons.qr_code, color: Colors.white),
-                label: const Text(
-                  "Generate QR Code",
-                  style: TextStyle(color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2ECC71),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  elevation: 2,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/scan-qr');
-                },
-                icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF2ECC71)),
-                label: const Text(
-                  "Scan QR Code",
-                  style: TextStyle(color: Color(0xFF2ECC71)),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF2ECC71), width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pushNamed(context, '/generate-qr'),
+                    icon: const Icon(Icons.qr_code, color: Colors.white),
+                    label: const Text('Generate QR', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2ECC71),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pushNamed(context, '/scan-qr'),
+                    icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF2ECC71)),
+                    label: const Text('Scan QR', style: TextStyle(color: Color(0xFF2ECC71))),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF2ECC71), width: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -157,7 +132,7 @@ class MyChatsScreen extends StatelessWidget {
 }
 
 class ChatSessionCard extends StatelessWidget {
-  final ChatSession chatSession;
+  final ChatSessionLocal chatSession;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
@@ -179,12 +154,12 @@ class ChatSessionCard extends StatelessWidget {
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
             spreadRadius: 1,
-            blurRadius: 8,
+            blurRadius: 5,
             offset: const Offset(0, 2),
           ),
         ],
         border: Border.all(
-          color: const Color(0xFF2ECC71).withOpacity(0.1),
+          color: const Color(0xFF2ECC71).withOpacity(0.2),
           width: 1,
         ),
       ),
@@ -193,25 +168,18 @@ class ChatSessionCard extends StatelessWidget {
         leading: Container(
           width: 50,
           height: 50,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF2ECC71),
-                Color(0xFF4ECDC4),
-              ],
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF2ECC71), Color(0xFF4ECDC4)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(25),
+            shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.person,
-            color: Colors.white,
-            size: 24,
-          ),
+          child: const Icon(Icons.person, color: Colors.white, size: 24),
         ),
         title: Text(
-          'Chat Session',
+          chatSession.otherUserName,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
@@ -221,16 +189,18 @@ class ChatSessionCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 4),
-            Text(
-              chatSession.lastMessage ?? 'No messages yet',
-              style: const TextStyle(
-                color: Color(0xFF6E7C8C),
-                fontSize: 14,
+            if (chatSession.lastMessage != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                chatSession.lastMessage!,
+                style: const TextStyle(
+                  color: Color(0xFF6E7C8C),
+                  fontSize: 14,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            ],
             const SizedBox(height: 4),
             Text(
               _formatTime(chatSession.lastActivity),
@@ -247,7 +217,7 @@ class ChatSessionCard extends StatelessWidget {
               _showDeleteConfirmation(context);
             }
           },
-          itemBuilder: (context) => [
+          itemBuilder: (BuildContext context) => [
             const PopupMenuItem<String>(
               value: 'delete',
               child: Row(
@@ -259,10 +229,7 @@ class ChatSessionCard extends StatelessWidget {
               ),
             ),
           ],
-          child: const Icon(
-            Icons.more_vert,
-            color: Color(0xFF6E7C8C),
-          ),
+          icon: const Icon(Icons.more_vert, color: Color(0xFF6E7C8C)),
         ),
         onTap: onTap,
       ),
@@ -275,7 +242,7 @@ class ChatSessionCard extends StatelessWidget {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Chat'),
-          content: const Text('Are you sure you want to delete this chat session?'),
+          content: Text('Are you sure you want to delete the chat with ${chatSession.otherUserName}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
