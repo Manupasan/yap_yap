@@ -1,8 +1,8 @@
-// lib/ui/scan_QR_code/widgets/scan_QR_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/services/local_storage_service.dart';
 import '../../../data/models/chat_session_local.dart';
+import '../../../utils/toast_utils.dart';  // Add this import
 import '../../qr_pairing/view_model/qr_pairing_view_model.dart';
 import 'scan_QR_code.dart';
 
@@ -28,20 +28,20 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
       if (viewModel.isConnected && viewModel.connectedSessionId != null) {
         _navigationHandled = true;
 
-        // Create chat session for the scanner
+        // Show success toast for QR scanner
+        ToastUtils.showSuccessToast("Successfully connected! 🚀");
+
         final chatSession = ChatSessionLocal(
           sessionId: viewModel.connectedSessionId!,
-          otherUserName: 'Connected User', // Default name
+          otherUserName: 'Connected User',
           lastMessage: null,
           lastActivity: DateTime.now(),
           createdAt: DateTime.now(),
         );
 
-        // Save to local storage
         await _localStorage.saveChatSession(chatSession);
 
         if (mounted) {
-          // Navigate to chat
           Navigator.pushReplacementNamed(
             context,
             '/chat',
@@ -54,16 +54,12 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to connect: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ToastUtils.showErrorToast('Failed to connect: ${e.toString()}');
       }
     }
   }
 
+  // ... rest of the build method remains the same
   @override
   Widget build(BuildContext context) {
     return Consumer<QrPairingViewModel>(

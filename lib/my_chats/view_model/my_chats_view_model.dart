@@ -1,8 +1,8 @@
-// lib/my_chats/view_model/my_chats_view_model.dart
 import 'package:flutter/material.dart';
 import '../../data/services/local_storage_service.dart';
 import '../../data/models/chat_session_local.dart';
 import '../../data/services/qr_service.dart';
+import '../../utils/toast_utils.dart';  // Add this import
 
 class MyChatsViewModel extends ChangeNotifier {
   final QrService qrService;
@@ -24,20 +24,37 @@ class MyChatsViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Error loading chat sessions: $e');
+      ToastUtils.showErrorToast('Failed to load chats');
     }
   }
 
   Future<void> deleteChatSession(String sessionId) async {
     try {
+      // Find the chat session name before deleting for the toast message
+      final sessionToDelete = _chatSessions.firstWhere(
+            (session) => session.sessionId == sessionId,
+        orElse: () => ChatSessionLocal(
+          sessionId: sessionId,
+          otherUserName: 'Chat',
+          lastActivity: DateTime.now(),
+          createdAt: DateTime.now(),
+        ),
+      );
+
       await _localStorage.deleteChatSession(sessionId);
       _chatSessions.removeWhere((session) => session.sessionId == sessionId);
       notifyListeners();
+
+      // Show success toast
+      ToastUtils.showSuccessToast('Chat with ${sessionToDelete.otherUserName} deleted successfully ✅');
     } catch (e) {
       print('Error deleting chat session: $e');
+      ToastUtils.showErrorToast('Failed to delete chat');
     }
   }
 
   Future<void> refreshChatSessions() async {
     await _loadChatSessions();
+    ToastUtils.showInfoToast('Chats refreshed');
   }
 }

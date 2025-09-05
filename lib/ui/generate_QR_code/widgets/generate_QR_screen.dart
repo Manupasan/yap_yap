@@ -1,6 +1,6 @@
-// lib/ui/generate_QR_code/widgets/generate_QR_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../utils/toast_utils.dart';  // Add this import
 import '../../qr_pairing/view_model/qr_pairing_view_model.dart';
 import 'generate_QR_code.dart';
 
@@ -19,7 +19,6 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final viewModel = Provider.of<QrPairingViewModel>(context, listen: false);
-      // Always generate a new session when entering this screen
       viewModel.resetSession();
       viewModel.generateSessionWithToken();
     });
@@ -29,7 +28,6 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
   Widget build(BuildContext context) {
     return Consumer<QrPairingViewModel>(
       builder: (context, viewModel, child) {
-        // Auto-navigate to chat when someone scans the QR
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (viewModel.hasOtherUsers &&
               viewModel.sessionId != null &&
@@ -38,13 +36,12 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
 
             _navigationHandled = true;
 
-            // Clear any existing notifications
-            ScaffoldMessenger.of(context).clearSnackBars();
+            // Show success toast for QR holder
+            ToastUtils.showSuccessToast("Someone connected to your QR code! 🎉");
 
-            // Set active session
+            ScaffoldMessenger.of(context).clearSnackBars();
             viewModel.setActiveSession(viewModel.sessionId!);
 
-            // Navigate to chat and replace current screen
             Navigator.pushReplacementNamed(
               context,
               '/chat',
@@ -70,11 +67,13 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
                   });
                   viewModel.resetSession();
                   viewModel.generateSessionWithToken();
+                  ToastUtils.showInfoToast("QR code refreshed");
                 },
                 icon: const Icon(Icons.refresh),
               ),
             ],
           ),
+          // ... rest of the build method remains the same
           body: SafeArea(
             child: SingleChildScrollView(
               child: Padding(
@@ -150,6 +149,7 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
                             });
                             viewModel.resetSession();
                             viewModel.generateSessionWithToken();
+                            ToastUtils.showInfoToast("New QR code generated");
                           },
                         ),
                       ),
