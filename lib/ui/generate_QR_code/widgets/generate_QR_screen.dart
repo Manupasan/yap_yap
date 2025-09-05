@@ -40,7 +40,7 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
             ToastUtils.showSuccessToast("Someone connected to your QR code! 🎉");
 
             ScaffoldMessenger.of(context).clearSnackBars();
-            viewModel.setActiveSession(viewModel.sessionId!);
+            // viewModel.setActiveSession(viewModel.sessionId!);
 
             Navigator.pushReplacementNamed(
               context,
