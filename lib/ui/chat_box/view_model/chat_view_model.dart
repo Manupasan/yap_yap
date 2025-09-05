@@ -18,6 +18,9 @@ class ChatViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String _otherUserName = 'Connected User';
 
+  // Track sent messages to prevent duplicates
+  final Set<String> _sentMessageIds = <String>{};
+
   List<ChatMessage> get messages => _messages;
   bool get isLoading => _isLoading;
   String get otherUserName => _otherUserName;
@@ -35,18 +38,12 @@ class ChatViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    // Load local messages first
+    _loadLocalMessages();
+
     _messagesSubscription = qrRepository.getMessagesStream(sessionId).listen(
-          (messages) {
-        _messages = messages.map((msg) => ChatMessage(
-          text: msg.text,
-          isMe: msg.senderId == currentUserId,
-          timestamp: msg.timestamp,
-          senderId: msg.senderId,
-        )).toList();
-
-        // Save messages locally
-        _saveMessagesLocally(messages);
-
+          (firebaseMessages) {
+        _mergeWithFirebaseMessages(firebaseMessages);
         _isLoading = false;
         notifyListeners();
       },
@@ -58,6 +55,96 @@ class ChatViewModel extends ChangeNotifier {
     );
   }
 
+  Future<void> _loadLocalMessages() async {
+    try {
+      final localMessages = await _localStorage.getMessagesForSession(sessionId);
+      if (localMessages.isNotEmpty) {
+        _messages = localMessages.map((msg) => ChatMessage(
+          text: msg.text,
+          isMe: msg.isMe,
+          timestamp: msg.timestamp,
+          senderId: msg.senderId,
+        )).toList();
+        _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      }
+    } catch (e) {
+      print('Error loading local messages: $e');
+    }
+  }
+
+  String _generateMessageId(String text, String senderId) {
+    return '${senderId}_${text.hashCode}';
+  }
+
+  void _mergeWithFirebaseMessages(List<ChatMessage> firebaseMessages) {
+    final messagesToAdd = <ChatMessage>[];
+
+    for (final fbMsg in firebaseMessages) {
+      final isMe = fbMsg.senderId == currentUserId;
+      final chatMessage = ChatMessage(
+        text: fbMsg.text,
+        isMe: isMe,
+        timestamp: fbMsg.timestamp,
+        senderId: fbMsg.senderId,
+      );
+
+      final messageId = _generateMessageId(chatMessage.text, chatMessage.senderId);
+
+      // Check if this is a message we already have (either locally or from Firebase)
+      final existsByContent = _messages.any((msg) =>
+      msg.text == chatMessage.text &&
+          msg.senderId == chatMessage.senderId);
+
+      // For messages sent by current user, check if we've already tracked it
+      final isOwnMessageAlreadyTracked = isMe && _sentMessageIds.contains(messageId);
+
+      if (!existsByContent && !isOwnMessageAlreadyTracked) {
+        messagesToAdd.add(chatMessage);
+
+        // Track the message ID to prevent future duplicates
+        if (isMe) {
+          _sentMessageIds.add(messageId);
+        }
+      }
+    }
+
+    // Add new messages
+    if (messagesToAdd.isNotEmpty) {
+      _messages.addAll(messagesToAdd);
+      _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      // Save new Firebase messages locally (only messages from other users)
+      final othersMessages = messagesToAdd.where((msg) => !msg.isMe).toList();
+      if (othersMessages.isNotEmpty) {
+        _saveFirebaseMessagesLocally(othersMessages);
+      }
+    }
+  }
+
+  Future<void> _saveFirebaseMessagesLocally(List<ChatMessage> newMessages) async {
+    try {
+      for (final message in newMessages) {
+        final messageLocal = MessageLocal(
+          sessionId: sessionId,
+          text: message.text,
+          senderId: message.senderId,
+          isMe: message.isMe,
+          timestamp: message.timestamp,
+        );
+
+        await _localStorage.saveMessage(messageLocal);
+      }
+
+      // Update chat session with last message
+      if (newMessages.isNotEmpty) {
+        final lastMessage = newMessages.last;
+        await _updateChatSession(lastMessage.text, lastMessage.timestamp);
+      }
+    } catch (e) {
+      print('Error saving Firebase messages locally: $e');
+    }
+  }
+
   Future<void> _loadLocalChatSession() async {
     try {
       final sessions = await _localStorage.getAllChatSessions();
@@ -65,43 +152,33 @@ class ChatViewModel extends ChangeNotifier {
 
       if (existingSession != null) {
         _otherUserName = existingSession.otherUserName;
-      } else {
-        // If no session exists, create one with default name
-        final chatSession = ChatSessionLocal(
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error loading local chat session: $e');
+    }
+  }
+
+  Future<void> _ensureChatSessionExists() async {
+    try {
+      final sessions = await _localStorage.getAllChatSessions();
+      final existingSession = sessions.where((s) => s.sessionId == sessionId).firstOrNull;
+
+      if (existingSession == null) {
+        // Create new chat session
+        final newSession = ChatSessionLocal(
           sessionId: sessionId,
           otherUserName: _otherUserName,
           lastMessage: null,
           lastActivity: DateTime.now(),
           createdAt: DateTime.now(),
         );
-        await _localStorage.saveChatSession(chatSession);
-      }
-      notifyListeners();
-    } catch (e) {
-      print('Error loading local chat session: $e');
-    }
-  }
 
-  Future<void> _saveMessagesLocally(List<ChatMessage> messages) async {
-    try {
-      for (final message in messages) {
-        final localMessage = MessageLocal(
-          sessionId: sessionId,
-          text: message.text,
-          senderId: message.senderId,
-          isMe: message.senderId == currentUserId,
-          timestamp: message.timestamp,
-        );
-        await _localStorage.saveMessage(localMessage);
-      }
-
-      // Update chat session with last message
-      if (messages.isNotEmpty) {
-        final lastMessage = messages.last;
-        await _updateChatSession(lastMessage.text, lastMessage.timestamp);
+        await _localStorage.saveChatSession(newSession);
+        print('Created new chat session for QR holder');
       }
     } catch (e) {
-      print('Error saving messages locally: $e');
+      print('Error ensuring chat session exists: $e');
     }
   }
 
@@ -120,21 +197,62 @@ class ChatViewModel extends ChangeNotifier {
 
   Future<void> sendMessage(String message) async {
     if (message.trim().isNotEmpty) {
-      try {
-        await qrRepository.sendMessage(sessionId, currentUserId, message);
+      final trimmedMessage = message.trim();
+      final messageId = _generateMessageId(trimmedMessage, currentUserId);
 
-        // Save to local storage immediately
-        final localMessage = MessageLocal(
+      // Check if we've already sent this exact message recently
+      if (_sentMessageIds.contains(messageId)) {
+        print('Duplicate message detected, skipping send');
+        return;
+      }
+
+      final now = DateTime.now();
+      final chatMessage = ChatMessage(
+        text: trimmedMessage,
+        isMe: true,
+        timestamp: now,
+        senderId: currentUserId,
+      );
+
+      // Add to sent messages tracker immediately
+      _sentMessageIds.add(messageId);
+
+      // Add to UI immediately
+      _messages.add(chatMessage);
+      _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      notifyListeners();
+
+      try {
+        // Ensure chat session exists before sending message
+        await _ensureChatSessionExists();
+
+        // Send message to Firebase
+        await qrRepository.sendMessage(sessionId, currentUserId, trimmedMessage);
+
+        // Save message locally
+        final messageLocal = MessageLocal(
           sessionId: sessionId,
-          text: message,
+          text: trimmedMessage,
           senderId: currentUserId,
           isMe: true,
-          timestamp: DateTime.now(),
+          timestamp: now,
         );
-        await _localStorage.saveMessage(localMessage);
-        await _updateChatSession(message, DateTime.now());
+        await _localStorage.saveMessage(messageLocal);
+
+        // Update chat session
+        await _updateChatSession(trimmedMessage, now);
+
+        print('Message sent and saved locally');
       } catch (error) {
         print('Error sending message: $error');
+
+        // Remove from UI and tracking if sending failed
+        _messages.removeWhere((msg) =>
+        msg.text == trimmedMessage &&
+            msg.senderId == currentUserId &&
+            msg.timestamp == now);
+        _sentMessageIds.remove(messageId);
+        notifyListeners();
       }
     }
   }
@@ -144,16 +262,13 @@ class ChatViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Create or update chat session with new name
-      final chatSession = ChatSessionLocal(
-        sessionId: sessionId,
-        otherUserName: newName,
-        lastMessage: _messages.isNotEmpty ? _messages.last.text : null,
-        lastActivity: _messages.isNotEmpty ? _messages.last.timestamp : DateTime.now(),
-        createdAt: DateTime.now(),
-      );
+      // Ensure chat session exists before updating
+      await _ensureChatSessionExists();
 
-      await _localStorage.saveChatSession(chatSession);
+      await _localStorage.updateChatSession(
+        sessionId,
+        otherUserName: newName,
+      );
     } catch (e) {
       print('Error updating user name: $e');
     }
@@ -170,6 +285,7 @@ class ChatViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _messagesSubscription?.cancel();
+    _sentMessageIds.clear();
     super.dispose();
   }
 }
