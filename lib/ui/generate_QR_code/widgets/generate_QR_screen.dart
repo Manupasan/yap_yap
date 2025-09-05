@@ -19,9 +19,9 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final viewModel = Provider.of<QrPairingViewModel>(context, listen: false);
-      if (viewModel.sessionId == null) {
-        viewModel.generateSessionWithToken();
-      }
+      // Always generate a new session when entering this screen
+      viewModel.resetSession();
+      viewModel.generateSessionWithToken();
     });
   }
 
@@ -69,6 +69,7 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
                     _navigationHandled = false;
                   });
                   viewModel.resetSession();
+                  viewModel.generateSessionWithToken();
                 },
                 icon: const Icon(Icons.refresh),
               ),
@@ -147,6 +148,7 @@ class _GenerateQRScreenState extends State<GenerateQRScreen> {
                             setState(() {
                               _navigationHandled = false;
                             });
+                            viewModel.resetSession();
                             viewModel.generateSessionWithToken();
                           },
                         ),
